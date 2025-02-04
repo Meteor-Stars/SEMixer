@@ -114,7 +114,7 @@ def main(seed_cur, pred_l):
     args.batch_size = 128
     args.train_epochs = 30
     args.sample_num=5
-    args.mask_rate=0.85
+    args.connection_probability=0.85
     args.checkpoints = 'LongTermTSF_' + args.model+ '/' + args.data_type + '/random_seed_' + str(args.random_seed)
     args.gpu = 5
     args.device='cuda:'+str(args.gpu)

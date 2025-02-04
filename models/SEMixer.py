@@ -14,9 +14,9 @@ from layers.RevIN import RevIN
 import scipy
 import random
 
-class PatchMLP(nn.Module):
+class InterPatchMixing(nn.Module):
     def __init__(self, PatchNum, dropout_rate=0.1):
-        super(PatchMLP, self).__init__()
+        super(InterPatchMixing, self).__init__()
         self.fc = nn.Linear(PatchNum, PatchNum)
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=dropout_rate)
@@ -30,9 +30,9 @@ class PatchMLP(nn.Module):
         x = self.dropout2(x)
         return x
 
-class PatchFeatMLP(nn.Module):
+class IntraPatchMixing(nn.Module):
     def __init__(self, PatchEmbedDim, dropout_rate=0.1):
-        super(PatchFeatMLP, self).__init__()
+        super(IntraPatchMixing, self).__init__()
         self.fc1 = nn.Linear(PatchEmbedDim, PatchEmbedDim)
         self.dropout1 = nn.Dropout(p=dropout_rate)
         self.relu = nn.ReLU()
@@ -50,12 +50,12 @@ class PatchFeatMLP(nn.Module):
 
 
 
-class EIBLayer(nn.Module):
+class TMBlock(nn.Module):
     def __init__(self, PatchNum, PatchEmbedDim, dropout, args=None):
-        super(EIBLayer, self).__init__()
+        super(TMBlock, self).__init__()
         self.args = args
-        self.patch_mlp = PatchMLP(PatchNum, dropout)
-        self.patch_feat_mlp = PatchFeatMLP(PatchEmbedDim, dropout)
+        self.inter_patch_mixing = InterPatchMixing(PatchNum, dropout)
+        self.intra_patch_mixing = IntraPatchMixing(PatchEmbedDim, dropout)
         self.sample_num = args.sample_num
         self.PatchNum=PatchNum
         self.self_attn = _MultiheadAttention(args.d_model, args.n_heads, args.d_model, args.d_model, res_attention=False)
@@ -80,22 +80,22 @@ class EIBLayer(nn.Module):
         elif self.args.dropout_interaction:
             binary_mask_matrix=torch.full((self.PatchNum,self.PatchNum),1).to(x_or.device)
             if self.args.test:
-                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,mask_rate=self.args.mask_rate,mode='test') #0.95 0.65 0.85
+                #Dropout ensemble
+                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test') 
             else:
-                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,mask_rate=self.args.mask_rate,mode='train')#0.95 0.65 0.85
+                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='train')
 
             x_p = torch.matmul(binary_mask_matrix.unsqueeze(0), x_or)
 
             x_p = x_p.transpose(1, 2)
         else:
-            x_revrse, x_revrse_2, x_reverse_allrand = 0, 0, 0
             x_p = x_or.transpose(1, 2)
         x_or = x_or.transpose(1, 2)
-        x_in_f = self.patch_mlp(x_p)
+        x_in_f = self.inter_patch_mixing(x_p)
         x_p_e = x_in_f
         x = x_p_e.transpose(1, 2) + res_x
         res_x = x
-        x = self.patch_feat_mlp(x) + res_x + x_or.transpose(1, 2)
+        x = self.intra_patch_mixing(x) + res_x + x_or.transpose(1, 2)
         return x
 
 class Model(nn.Module):
@@ -133,7 +133,7 @@ class Model(nn.Module):
         else:
             self.head_nf = d_model * self.configs.reduce_dim
         # Backbone
-        self.mpic_layer = MPICLayer(d_model=d_model,configs=self.configs)
+        self.mpmc_layer = MPMCLayer(d_model=d_model,configs=self.configs)
         # Head
         self.n_vars = self.configs.c_in
         self.individual = individual
@@ -159,7 +159,7 @@ class Model(nn.Module):
             z_scale_all[k] = v.unfold(dimension=-1, size=self.patch_len * k, step=self.stride * k).permute(0, 1, 3, 2)
         # z_scale_all: [batch_size x variable_size x patch_length x patch_number]
 
-        z = self.mpic_layer(z_scale_all)  # z: [batch_size x variable_size x d_model x patch_num]
+        z = self.mpmc_layer(z_scale_all)  # z: [batch_size x variable_size x d_model x patch_num]
 
         z = self.head(z)  # z: [batch_size x variable_size x prediction_length]
         # denorm
@@ -169,7 +169,7 @@ class Model(nn.Module):
             z = z.permute(0, 2, 1)
 
         return z.permute(0, 2, 1)
-class MPICLayer(nn.Module):
+class MPMCLayer(nn.Module):
     def __init__(self,d_model,pe='zeros',learn_pe=True,configs=None):
         super().__init__()
         self.configs = configs
@@ -184,24 +184,24 @@ class MPICLayer(nn.Module):
         self.W_pos_4 = positional_encoding(pe, learn_pe, self.configs.patch_num_all[8], d_model)
         self.W_Pos_Scales= [self.W_pos_1, self.W_pos_2, self.W_pos_3, self.W_pos_4]
 
-        self.EIBs_Scale_1 = nn.ModuleList()
+        self.T_Mixing_Scale_1 = nn.ModuleList()
         for i in range(self.configs.eib_num_1scale):
-            self.EIBs_Scale_1.append(EIBLayer(self.configs.patch_num_all[1], d_model, 0.1, args=configs))
+            self.T_Mixing_Scale_1.append(TMBlock(self.configs.patch_num_all[1], d_model, 0.1, args=configs))
 
-        self.EIBs_Scale_2 = nn.ModuleList()
+        self.T_Mixing_Scale_2 = nn.ModuleList()
         for i in range(self.configs.eib_num):
-            self.EIBs_Scale_2.append(
-                EIBLayer(self.configs.patch_num_all[1] + self.configs.patch_num_all[2], d_model, 0.1, args=configs))
+            self.T_Mixing_Scale_2.append(
+                TMBlock(self.configs.patch_num_all[1] + self.configs.patch_num_all[2], d_model, 0.1, args=configs))
 
-        self.EIBs_Scale_3 = nn.ModuleList()
+        self.T_Mixing_Scale_3 = nn.ModuleList()
         for i in range(self.configs.eib_num):
-            self.EIBs_Scale_3.append(
-                EIBLayer(self.configs.patch_num_all[2] + self.configs.patch_num_all[4], d_model, 0.1, args=configs))
+            self.T_Mixing_Scale_3.append(
+                TMBlock(self.configs.patch_num_all[2] + self.configs.patch_num_all[4], d_model, 0.1, args=configs))
 
-        self.EIBs_Scale_4 = nn.ModuleList()
+        self.T_Mixing_Scale_4 = nn.ModuleList()
         for i in range(self.configs.eib_num):
-            self.EIBs_Scale_4.append(
-                EIBLayer(self.configs.patch_num_all[4] + self.configs.patch_num_all[8], d_model, 0.1, args=configs))
+            self.T_Mixing_Scale_4.append(
+                TMBlock(self.configs.patch_num_all[4] + self.configs.patch_num_all[8], d_model, 0.1, args=configs))
 
         self.reduce = nn.Linear(sum(self.configs.patch_num_all.values()), self.configs.reduce_dim)
         self.dropout = nn.Dropout(0.1)
@@ -218,7 +218,7 @@ class MPICLayer(nn.Module):
         z_all = {}
         if not self.configs.multi_scale:
             for i in range(self.configs.eib_num):
-                z_all[1] = self.EIBs_Scale_1[i](x_scale_all[1])
+                z_all[1] = self.T_Mixing_Scale_1[i](x_scale_all[1])
             z = z_all[1]
             z = torch.reshape(z, (-1, n_vars, z.shape[-2], z.shape[-1]))
             z = z.permute(0, 1, 3, 2)
@@ -227,30 +227,30 @@ class MPICLayer(nn.Module):
             z_final = {}
             for i in range(self.configs.eib_num_1scale):
                 if i==0:
-                    z_all[1] = self.EIBs_Scale_1[i](x_scale_all[1]) # [(batch_size x variable_size) x patch_number x patch_embed_dim]
+                    z_all[1] = self.T_Mixing_Scale_1[i](x_scale_all[1]) # [(batch_size x variable_size) x patch_number x patch_embed_dim]
                 else:
 
-                    z_all[1]= self.EIBs_Scale_1[i](z_all[1])
+                    z_all[1]= self.T_Mixing_Scale_1[i](z_all[1])
             temp = torch.cat([z_all[1], x_scale_all[2]], dim=1)
 
             for i in range(self.configs.eib_num):
                 if i == 0:
-                    z_all[2] = self.EIBs_Scale_2[i](temp)
+                    z_all[2] = self.T_Mixing_Scale_2[i](temp)
                 else:
-                    z_all[2] = self.EIBs_Scale_2[i](z_all[2])
+                    z_all[2] = self.T_Mixing_Scale_2[i](z_all[2])
             temp = torch.cat([z_all[2][:, -x_scale_all[2].shape[1]:, :], x_scale_all[4]], dim=1)
 
             for i in range(self.configs.eib_num):
                 if i == 0:
-                    z_all[4] = self.EIBs_Scale_3[i](temp)
+                    z_all[4] = self.T_Mixing_Scale_3[i](temp)
                 else:
-                    z_all[4] = self.EIBs_Scale_3[i](z_all[4])
+                    z_all[4] = self.T_Mixing_Scale_3[i](z_all[4])
             temp = torch.cat([z_all[4][:, -x_scale_all[4].shape[1]:, :], x_scale_all[8]], dim=1)
             for i in range(self.configs.eib_num):
                 if i==0:
-                    z_all[8] = self.EIBs_Scale_4[i](temp)
+                    z_all[8] = self.T_Mixing_Scale_4[i](temp)
                 else:
-                    z_all[8]= self.EIBs_Scale_4[i](z_all[8])
+                    z_all[8]= self.T_Mixing_Scale_4[i](z_all[8])
             z_final[1] = z_all[1]
             z_final[2] = z_all[2][:, -x_scale_all[2].shape[1]:, :]
             z_final[4] = z_all[4][:, -x_scale_all[4].shape[1]:, :]
@@ -291,8 +291,6 @@ class Flatten_Head(nn.Module):
         else:
             self.flatten = nn.Flatten(start_dim=-2)
             self.linear = nn.Linear(nf, target_window)
-            # if args.linear_mlp:
-            #     self.linear = nn.Sequential(nn.Linear(nf, nf // 2), nn.Linear(nf // 2, target_window))
             self.dropout = nn.Dropout(head_dropout)
 
 
