@@ -237,6 +237,123 @@ def main(seed_cur, pred_l):
             args.seq_len = 1664
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+    elif args.data_type=='national_illness':
+        args.data_path = 'national_illness.csv'
+        args.data = 'custom'
+        args.model_id = 'national_illness'
+        args.enc_in = 7
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 16
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=16
+        args.learning_rate=0.0025
+        args.e_layers = 3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+        if args.model=='Pathformer':
+            args.num_nodes = 7
+            args.layer_nums = 3
+            args.k = 2
+            args.d_model = 8
+            args.d_ff = 64
+            args.patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
+            args.patch_size_list = np.array(args.patch_size_list).reshape(args.layer_nums, -1).tolist()
+        elif args.model=='TimeMixer':
+            args.down_sampling_layers = 3
+            args.down_sampling_window = 2
+            args.d_model = 16
+            args.d_ff = 32
+        elif args.model=='PatchTST':
+            args.d_model = 16
+            args.d_ff = 128
+        elif args.model=='ITransformer':
+            args.d_model = 128
+            args.d_ff = 128
+            args.e_layers=2
+            args.n_heads=8
+    elif args.data_type=='exchange_rate':
+        args.data_path = 'exchange_rate.csv'
+        args.data = 'custom'
+        args.model_id = 'exchange_rate'
+        args.enc_in = 8
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 128
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=32
+        args.learning_rate=0.0025
+        args.e_layers = 3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+        if args.model=='Pathformer':
+            args.num_nodes = 8
+            args.layer_nums = 3
+            args.k = 2
+            args.d_model = 8
+            args.d_ff = 64
+            args.patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
+            args.patch_size_list = np.array(args.patch_size_list).reshape(args.layer_nums, -1).tolist()
+        elif args.model=='TimeMixer':
+            args.down_sampling_layers = 3
+            args.down_sampling_window = 2
+            args.d_model = 16
+            args.d_ff = 32
+        elif args.model=='PatchTST':
+            args.d_model = 16
+            args.d_ff = 128
+        elif args.model=='ITransformer':
+            args.d_model = 128
+            args.d_ff = 128
+            args.e_layers=2
+            args.n_heads=8
+    elif args.data_type=='solar_AL':
+        args.data_path = 'solar_AL.txt'
+        args.data = 'solar_AL'
+        args.model_id = 'solar_AL'
+        args.enc_in = 137
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 128
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=64#
+        args.learning_rate=0.0025
+        args.e_layers=3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+        if args.model=='PathFormer':
+            args.num_nodes = 137
+            args.layer_nums = 3
+            args.k = 2
+            args.d_model = 8
+            args.d_ff = 64
+            args.patch_size_list = [16, 12, 8, 4, 12, 8, 6, 4, 8, 6, 2, 12]
+            args.patch_size_list = np.array(args.patch_size_list).reshape(args.layer_nums, -1).tolist()
+        elif args.model=='TimeMixer':
+            args.down_sampling_layers = 3
+            args.down_sampling_window = 2
+            args.d_model = 16
+            args.d_ff = 32
+        elif args.model=='PatchTST':
+            args.d_model = 128
+            args.d_ff = 256
+        elif args.model=='ITransformer':
+            args.d_model = 512
+            args.d_ff = 512
+            args.e_layers=2
+            args.n_heads=8
     args.is_training=1
 
 
