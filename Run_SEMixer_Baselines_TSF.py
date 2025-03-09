@@ -415,7 +415,7 @@ def main(seed_cur, pred_l):
         torch.cuda.empty_cache()
 
 if __name__ == "__main__":
-    Seeds_All = [2022, 2021,2024,2038,2065]
+    Seeds_All = [0,1,2,3,4,5]
     pred_len = [96, 192, 336, 720]
     for seed in Seeds_All:
         for pred_l in pred_len:

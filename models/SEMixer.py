@@ -15,13 +15,13 @@ import scipy
 import random
 
 class InterPatchMixing(nn.Module):
-    def __init__(self, PatchNum, dropout_rate=0.1):
+    def __init__(self, PatchNum, connection_probability=0.1):
         super(InterPatchMixing, self).__init__()
         self.fc = nn.Linear(PatchNum, PatchNum)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=dropout_rate)
+        self.dropout = nn.Dropout(p=connection_probability)
         self.fc2 = nn.Linear(PatchNum, PatchNum)
-        self.dropout2 = nn.Dropout(p=dropout_rate)
+        self.dropout2 = nn.Dropout(p=connection_probability)
     def forward(self, x):
         x = self.fc(x)
         x = self.relu(x)
@@ -31,13 +31,13 @@ class InterPatchMixing(nn.Module):
         return x
 
 class IntraPatchMixing(nn.Module):
-    def __init__(self, PatchEmbedDim, dropout_rate=0.1):
+    def __init__(self, PatchEmbedDim, connection_probability=0.1):
         super(IntraPatchMixing, self).__init__()
         self.fc1 = nn.Linear(PatchEmbedDim, PatchEmbedDim)
-        self.dropout1 = nn.Dropout(p=dropout_rate)
+        self.dropout1 = nn.Dropout(p=connection_probability)
         self.relu = nn.ReLU()
         self.fc2 = nn.Linear(PatchEmbedDim, PatchEmbedDim)
-        self.dropout2 = nn.Dropout(p=dropout_rate)
+        self.dropout2 = nn.Dropout(p=connection_probability)
 
     def forward(self, x):
         x = self.fc1(x)
@@ -62,10 +62,10 @@ class TMBlock(nn.Module):
 
     
     
-    def Dropout_Interaction(self,X,dropout_rate=None,mode='train'):
-        effective_rate=1-dropout_rate
+    def Drop_Interaction(self,X,connection_probability=None,mode='train'):
+        effective_rate=1-connection_probability
         if mode=='train':
-            mask = (torch.rand(X.shape) > dropout_rate).float().to(X.device)
+            mask = (torch.rand(X.shape) > connection_probability).float().to(X.device)
             return mask * X
         elif mode=='test':
             if self.args.dropout_ensemble:
@@ -77,13 +77,13 @@ class TMBlock(nn.Module):
         if self.args.Self_Attention_Mechanism:
             out, _ = self.self_attn(x_or)
             x_p = out.transpose(1, 2)
-        elif self.args.dropout_interaction:
+        elif self.args.Drop_Interaction:
             binary_mask_matrix=torch.full((self.PatchNum,self.PatchNum),1).to(x_or.device)
             if self.args.test:
                 #Dropout ensemble
-                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test') 
+                binary_mask_matrix=self.Drop_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test') 
             else:
-                binary_mask_matrix=self.Dropout_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='train')
+                binary_mask_matrix=self.Drop_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='train')
 
             x_p = torch.matmul(binary_mask_matrix.unsqueeze(0), x_or)
 
