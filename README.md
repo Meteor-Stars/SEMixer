@@ -4,7 +4,8 @@ The experiment is conducted on pytorch.
   You can download the public datasets used in our paper from https://drive.google.com/drive/folders/1PPLsAoDbv4WcoXDp-mm4LFxoKwewnKxX. The downloaded folders e.g., "ETTh1.csv",  should be placed at the "dataset" folder. These datasets are extensively used for evaluating performance of various time series forecasting methods.
   
 ## Reproducing details
-### Input lengths for each method
+### Best input lengths for each method
+To evaluate the ability of each method to gain performance improvements from longer sequences, we tested the prediction performance of each method under different input lengths *n* belongs to {96, 384, 512, 640, 768, 1024, 1280, 1536, 1664, 1792, 2048}. The best input length for each method is as follows:
 
 | **方法**       | **预测长度** | **ETTh1** | **ETTh2** | **ETTm1** | **ETTm2** | **Weather** | **Electricity** |
 |----------------|--------------|-----------|-----------|-----------|-----------|-------------|-----------------|
