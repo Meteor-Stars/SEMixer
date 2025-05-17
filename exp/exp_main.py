@@ -1,6 +1,7 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from models import TimeMixer,PatchTST,PathFormer,PatchTST_ScaleFormer,NHits_Scaleformer,Autoformer_Scaleformer,FiLM,DLinear,NLinear,SEMixer
+from models import TimeMixer,PatchTST,PathFormer,PatchTST_ScaleFormer,NHits_Scaleformer,Autoformer_Scaleformer,FiLM,DLinear,SEMixer,\
+    DeformableTST,ModernTCN,TimeXer,TimesNet,iTransformer
 from utils.tools import EarlyStopping, adjust_learning_rate, visual
 from utils.metrics import metric
 from transformers import PatchTSMixerConfig as CI_TSmixer_Config
@@ -52,17 +53,20 @@ class Exp_Main(Exp_Basic):
     def _build_model(self):
         model_dict = {
             'DLinear': DLinear,
-            'NLinear': NLinear,
-
             'TimeMixer':TimeMixer,
-            'CI_TSmixer':CI_TSmixer,
+            'TSmixer':CI_TSmixer,
             'PatchTST':PatchTST,
             'FiLM':FiLM,
             'PatchTST_ScaleFormer':PatchTST_ScaleFormer,
             'Autoformer_Scaleformer':Autoformer_Scaleformer,
             'NHits_Scaleformer':NHits_Scaleformer,
             'Pathformer':PathFormer,
-            'MEINet': MEINet,
+            'DeformableTST':DeformableTST,
+            'ModernTCN':ModernTCN,
+            'iTransformer':iTransformer,
+            'TimeXer':TimeXer,
+            'TimesNet':TimesNet,
+            'SEMixer': SEMixer,
         }
 
         if self.args.model =='CI_TSmixer':

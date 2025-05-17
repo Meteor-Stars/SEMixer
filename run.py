@@ -15,8 +15,26 @@ def get_files(path):
     return data_dict
 
 def main(seed_cur, pred_l):
-    parser = argparse.ArgumentParser(description='Scaleformer for Time Series Forecasting')
+    parser = argparse.ArgumentParser(description='Autoformer & Transformer family for Time Series Forecasting')
 
+    # random seed
+    parser.add_argument('--random_seed', type=int, default=2021, help='random seed')
+    parser.add_argument('--train_only', type=bool, required=False, default=False, help='perform training on full input dataset without validation and testing')
+    # basic config
+    parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
+    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
+    parser.add_argument('--features', type=str, default='M',
+                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
+    parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
+    parser.add_argument('--freq', type=str, default='h',
+                        help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
+    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
+    # forecasting task
+    parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
+    parser.add_argument('--label_len', type=int, default=48, help='start token length')
+    parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
+
+    # PatchTST
     parser.add_argument('--fc_dropout', type=float, default=0.05, help='fully connected dropout')
     parser.add_argument('--head_dropout', type=float, default=0.0, help='head dropout')
     parser.add_argument('--patch_len', type=int, default=16, help='patch length')
@@ -28,41 +46,20 @@ def main(seed_cur, pred_l):
     parser.add_argument('--decomposition', type=int, default=0, help='decomposition; True 1 False 0')
     parser.add_argument('--kernel_size', type=int, default=25, help='decomposition-kernel')
     parser.add_argument('--individual', type=int, default=0, help='individual head; True 1 False 0')
-
-    # basic config
-    parser.add_argument('--is_training', type=int, default=1, help='status')
-    parser.add_argument('--use_multi_scale', action='store_true', help='using mult-scale')
-    parser.add_argument('--prob_forecasting', action='store_true', help='using probabilistic forecasting')
-    parser.add_argument('--scales', default=[16, 8, 4, 2, 1], help='scales in mult-scale')
-    parser.add_argument('--scale_factor', type=int, default=2, help='scale factor for upsample')
-
-    # data loader
-    parser.add_argument('--data', type=str, default='custom', help='dataset type')
-    parser.add_argument('--root_path', type=str, default='./data/ETT/', help='root path of the data file')
-    parser.add_argument('--data_path', type=str, default='ETTh1.csv', help='data file')
-    parser.add_argument('--features', type=str, default='M',
-                        help='forecasting task, options:[M, S, MS]; M:multivariate predict multivariate, S:univariate predict univariate, MS:multivariate predict univariate')
-    parser.add_argument('--target', type=str, default='OT', help='target feature in S or MS task')
-    parser.add_argument('--freq', type=str, default='h',
-                        help='freq for time features encoding, options:[s:secondly, t:minutely, h:hourly, d:daily, b:business days, w:weekly, m:monthly], you can also use more detailed freq like 15min or 3h')
-    parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
-
-    # forecasting task
-    parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
-    parser.add_argument('--label_len', type=int, default=48, help='start token length')
-    parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
-
-    # model define
-    parser.add_argument('--enc_in', type=int, default=7, help='encoder input size')
+    parser.add_argument('--var_individual', type=int, default=0, help='individual head; True 1 False 0')
+    parser.add_argument('--var_decomp', type=int, default=0, help='individual head; True 1 False 0')
+    # Formers
+    parser.add_argument('--embed_type', type=int, default=0, help='0: default 1: value embedding + temporal embedding + positional embedding 2: value embedding + temporal embedding 3: value embedding + positional embedding 4: value embedding')
+    parser.add_argument('--enc_in', type=int, default=7, help='encoder input size') # DLinear with --individual, use this hyperparameter as the number of channels
     parser.add_argument('--dec_in', type=int, default=7, help='decoder input size')
     parser.add_argument('--c_out', type=int, default=7, help='output size')
     parser.add_argument('--d_model', type=int, default=512, help='dimension of model')
     parser.add_argument('--n_heads', type=int, default=8, help='num of heads')
-    parser.add_argument('--e_layers', type=int, default=4, help='num of encoder layers')
+    parser.add_argument('--e_layers', type=int, default=2, help='num of encoder layers')
     parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
     parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')
     parser.add_argument('--moving_avg', type=int, default=25, help='window size of moving average')
-    parser.add_argument('--factor', type=int, default=3, help='attn factor')
+    parser.add_argument('--factor', type=int, default=1, help='attn factor')
     parser.add_argument('--distil', action='store_false',
                         help='whether to use distilling in encoder, using this argument means not using distilling',
                         default=True)
@@ -73,12 +70,6 @@ def main(seed_cur, pred_l):
     parser.add_argument('--output_attention', action='store_true', help='whether to output attention in ecoder')
     parser.add_argument('--do_predict', action='store_true', help='whether to predict unseen future data')
 
-    parser.add_argument('--reconstruct_loss', action='store_true',
-                        help='whether to use reconstruction loss for patch squeeze', default=False)
-    parser.add_argument('--LWI', action='store_true',
-                        help='Learnable Weighted-average Integration', default=True)
-    parser.add_argument('--MAP', action='store_true',
-                        help='Multi-period self-Adaptive Patching', default=True)
     # optimization
     parser.add_argument('--num_workers', type=int, default=10, help='data loader num workers')
     parser.add_argument('--itr', type=int, default=2, help='experiments times')
@@ -96,26 +87,39 @@ def main(seed_cur, pred_l):
     parser.add_argument('--use_gpu', type=bool, default=True, help='use gpu')
     parser.add_argument('--gpu', type=int, default=0, help='gpu')
     parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple gpus', default=False)
-    parser.add_argument('--devices', type=str, default='0,1', help='device ids of multile gpus')
+    parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
+    parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
+
+
+
     args = parser.parse_args()
     args.random_seed=seed_cur
 
-    args.revin=True
+
     args.label_len = 18
-    args.task_name = 'long_term_forecast'
+
     args.efficient_comp=False
     args.root_path='./dataset/'
     args.data_type='ETTh1'
-    args.model='Autoformer_Scaleformer'
+    args.model='SEMixer'
+    args.reduce_dim = 64
+    args.maximum_patch_num=64
+    args.multi_scale=True
     args.pred_len=pred_l
+    args.eib_num=1
+    args.eib_num_1scale = 1
+    args.scale_factors=[1,2,4,8]
     args.learning_rate = 0.0001
+    args.d_model = 128
     args.batch_size = 128
     args.train_epochs = 30
     args.sample_num=5
+    args.connection_probability=0.85
     args.checkpoints = 'LongTermTSF_' + args.model+ '/' + args.data_type + '/random_seed_' + str(args.random_seed)
     args.gpu = 5
     args.device='cuda:'+str(args.gpu)
-    args.scaleformers=['Autoformer_Scaleformer','NHits_Scaleformer','PatchTST_ScaleFormer']
+    args.Random_Attention_Mechanism=True
+    args.Self_Attention_Mechanism=False
     args.train_epochs = 30
     # random seed
     fix_seed = args.random_seed
@@ -128,100 +132,167 @@ def main(seed_cur, pred_l):
         args.data = 'ETTh1'
         args.model_id = 'ETTh1'
         args.enc_in = 7
-        args.e_layers = 2
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 16
-        args.d_ff = 32
-        args.batch_size=64*2
-        args.learning_rate=0.0001
+        args.n_heads = 4
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
         if args.pred_len==96 or args.pred_len==192:
             args.seq_len = 1280
         elif args.pred_len==336 or args.pred_len==720:
             args.seq_len=384
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+
+
     elif args.data_type=='ETTh2':
         args.data_path = 'ETTh2.csv'
         args.data = 'ETTh2'
         args.model_id = 'ETTh2'
         args.enc_in = 7
-        args.e_layers = 2
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 16
-        args.d_ff = 32
-        args.batch_size=64*2
-        args.learning_rate=0.0001
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=128
         if args.pred_len==96:
             args.seq_len = 1280
         elif args.pred_len==192 or args.pred_len==336:
             args.seq_len=1024
         elif args.pred_len==720:
             args.seq_len=768
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+
     elif args.data_type=='ETTm1':
         args.data_path = 'ETTm1.csv'
         args.data = 'ETTm1'
         args.model_id = 'ETTm1'
         args.enc_in = 7
-        args.e_layers = 2
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 16
-        args.d_ff = 32
-        args.batch_size=64*2
-        args.learning_rate=0.0001
+        args.e_layers = 1  # 1
+        args.n_heads = 16
+        args.d_ff = 256
+        args.dropout = 0.2
+        args.fc_dropout = 0.2
+        args.head_dropout = 0
+        args.batch_size=128
         if args.pred_len==96:
             args.seq_len = 768
         elif args.pred_len==192 or args.pred_len==336:
             args.seq_len=1536
         elif args.pred_len==720:
             args.seq_len=1664
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='ETTm2':
         args.data_path = 'ETTm2.csv'
         args.data = 'ETTm2'
         args.model_id = 'ETTm2'
         args.enc_in = 7
-        args.e_layers = 2
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 32
-        args.d_ff = 32
-        args.batch_size=64*2
-        args.learning_rate=0.0001
+        args.e_layers = 1  # 1
+        args.n_heads = 16
+        args.d_ff = 256
+        args.dropout = 0.2
+        args.fc_dropout = 0.2
+        args.head_dropout = 0
+        args.batch_size=128
         if args.pred_len==96:
             args.seq_len = 768
         elif args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
             args.seq_len=1664
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='weather':
         args.data_path = 'weather.csv'
         args.model_id = 'weather'
         args.data = 'custom'
         args.enc_in = 21
-        args.dec_in = 21
-        args.e_layers = 3
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 16
-        args.d_ff = 32
+        args.e_layers = 1  # 1
+        args.n_heads = 16
+        args.d_ff = 256
+        args.dropout = 0.2
+        args.fc_dropout = 0.2
+        args.head_dropout = 0
         args.batch_size = 64
-        args.learning_rate=0.0001
         if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
             args.seq_len = 2048
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='electricity':
         args.data_path = 'electricity.csv'
         args.data = 'custom'
         args.model_id = 'electricity'
         args.enc_in = 321
-
-        args.down_sampling_layers = 3
-        args.down_sampling_window = 2
-        args.d_model = 16
-        args.d_ff = 32
-        args.e_layers=3
-        args.factor=3
+        args.e_layers = 1  # 1
+        args.n_heads = 16
+        args.d_ff = 256
+        args.dropout = 0.2
+        args.fc_dropout = 0.2
+        args.head_dropout = 0
         args.batch_size=32
-        args.learning_rate=0.0001
         if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
             args.seq_len = 1664
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+    elif args.data_type=='national_illness':
+        args.data_path = 'national_illness.csv'
+        args.data = 'custom'
+        args.model_id = 'national_illness'
+        args.enc_in = 7
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 16
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=16
+        args.learning_rate=0.0025
+        args.e_layers = 3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+
+
+    elif args.data_type=='exchange_rate':
+        args.data_path = 'exchange_rate.csv'
+        args.data = 'custom'
+        args.model_id = 'exchange_rate'
+        args.enc_in = 8
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 128
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=32
+        args.learning_rate=0.0025
+        args.e_layers = 3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+
+    elif args.data_type=='solar_AL':
+        args.data_path = 'solar_AL.txt'
+        args.data = 'solar_AL'
+        args.model_id = 'solar_AL'
+        args.enc_in = 137
+        args.e_layers = 1  # 1
+        args.n_heads = 4
+        args.d_model = 128
+        args.d_ff = 128
+        args.dropout = 0.3
+        args.fc_dropout = 0.3
+        args.head_dropout = 0
+        args.batch_size=64#
+        args.learning_rate=0.0025
+        args.e_layers=3
+        args.seq_len=512
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
     args.is_training=1
 
@@ -284,7 +355,7 @@ def main(seed_cur, pred_l):
         torch.cuda.empty_cache()
 
 if __name__ == "__main__":
-    Seeds_All = [0, 1, 2, 3, 4, 5]
+    Seeds_All = [0,1,2,3,4]
     pred_len = [96, 192, 336, 720]
     for seed in Seeds_All:
         for pred_l in pred_len:

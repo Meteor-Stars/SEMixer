@@ -62,14 +62,14 @@ class TMBlock(nn.Module):
 
     
     
-    def Drop_Interaction(self,X,connection_probability=None,mode='train'):
+    def Random_Attention(self,X,connection_probability=None,mode='train'):
         effective_rate=1-connection_probability
         if mode=='train':
             mask = (torch.rand(X.shape) > connection_probability).float().to(X.device)
             return mask * X
         elif mode=='test':
-            if self.args.dropout_ensemble:
-                return X * effective_rate
+            # Dropout ensemble
+            return X * effective_rate
 
 
     def forward(self, x_or):
@@ -77,13 +77,12 @@ class TMBlock(nn.Module):
         if self.args.Self_Attention_Mechanism:
             out, _ = self.self_attn(x_or)
             x_p = out.transpose(1, 2)
-        elif self.args.Drop_Interaction:
+        elif self.args.Random_Attention:
             binary_mask_matrix=torch.full((self.PatchNum,self.PatchNum),1).to(x_or.device)
             if self.args.test:
-                #Dropout ensemble
-                binary_mask_matrix=self.Drop_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test') 
+                binary_mask_matrix=self.Random_Attention(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test')
             else:
-                binary_mask_matrix=self.Drop_Interaction(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='train')
+                binary_mask_matrix=self.Random_Attention(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='train')
 
             x_p = torch.matmul(binary_mask_matrix.unsqueeze(0), x_or)
 
