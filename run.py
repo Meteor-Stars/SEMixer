@@ -59,7 +59,7 @@ def main(seed_cur, pred_l):
     parser.add_argument('--d_layers', type=int, default=1, help='num of decoder layers')
     parser.add_argument('--d_ff', type=int, default=2048, help='dimension of fcn')
     parser.add_argument('--moving_avg', type=int, default=25, help='window size of moving average')
-    parser.add_argument('--factor', type=int, default=1, help='attn factor')
+    parser.add_argument('--factor', type=int, default=4, help='attn factor')
     parser.add_argument('--distil', action='store_false',
                         help='whether to use distilling in encoder, using this argument means not using distilling',
                         default=True)
@@ -116,11 +116,18 @@ def main(seed_cur, pred_l):
     args.sample_num=5
     args.connection_probability=0.85
     args.checkpoints = 'LongTermTSF_' + args.model+ '/' + args.data_type + '/random_seed_' + str(args.random_seed)
-    args.gpu = 5
+    args.gpu = 0
     args.device='cuda:'+str(args.gpu)
     args.Random_Attention_Mechanism=True
-    args.Self_Attention_Mechanism=False
+    args.self_attn=False
+    args.prob_attn=False
+    args.logsparse=False
+    args.peformer_attn=False
+    args.reformer_attn=False #LSH attention
+    args.autocorrelation=False
+    args.fed_fourier_attn=False
     args.train_epochs = 30
+    args.ultra_longterm=True
     # random seed
     fix_seed = args.random_seed
     random.seed(fix_seed)
@@ -137,10 +144,13 @@ def main(seed_cur, pred_l):
         args.dropout = 0.3
         args.fc_dropout = 0.3
         args.head_dropout = 0
-        if args.pred_len==96 or args.pred_len==192:
-            args.seq_len = 1280
-        elif args.pred_len==336 or args.pred_len==720:
-            args.seq_len=384
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96 or args.pred_len==192:
+                args.seq_len = 1280
+            elif args.pred_len==336 or args.pred_len==720:
+                args.seq_len=384
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
@@ -157,12 +167,15 @@ def main(seed_cur, pred_l):
         args.fc_dropout = 0.3
         args.head_dropout = 0
         args.batch_size=128
-        if args.pred_len==96:
-            args.seq_len = 1280
-        elif args.pred_len==192 or args.pred_len==336:
-            args.seq_len=1024
-        elif args.pred_len==720:
-            args.seq_len=768
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96:
+                args.seq_len = 1280
+            elif args.pred_len==192 or args.pred_len==336:
+                args.seq_len=1024
+            elif args.pred_len==720:
+                args.seq_len=768
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
@@ -178,12 +191,15 @@ def main(seed_cur, pred_l):
         args.fc_dropout = 0.2
         args.head_dropout = 0
         args.batch_size=128
-        if args.pred_len==96:
-            args.seq_len = 768
-        elif args.pred_len==192 or args.pred_len==336:
-            args.seq_len=1536
-        elif args.pred_len==720:
-            args.seq_len=1664
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96:
+                args.seq_len = 768
+            elif args.pred_len==192 or args.pred_len==336:
+                args.seq_len=1536
+            elif args.pred_len==720:
+                args.seq_len=1664
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='ETTm2':
@@ -198,10 +214,13 @@ def main(seed_cur, pred_l):
         args.fc_dropout = 0.2
         args.head_dropout = 0
         args.batch_size=128
-        if args.pred_len==96:
-            args.seq_len = 768
-        elif args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
-            args.seq_len=1664
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96:
+                args.seq_len = 768
+            elif args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
+                args.seq_len=1664
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='weather':
@@ -216,8 +235,11 @@ def main(seed_cur, pred_l):
         args.fc_dropout = 0.2
         args.head_dropout = 0
         args.batch_size = 64
-        if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
-            args.seq_len = 2048
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
+                args.seq_len = 2048
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='electricity':
@@ -232,8 +254,11 @@ def main(seed_cur, pred_l):
         args.fc_dropout = 0.2
         args.head_dropout = 0
         args.batch_size=32
-        if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
-            args.seq_len = 1664
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            if args.pred_len==96 or args.pred_len==192 or args.pred_len==336 or args.pred_len==720:
+                args.seq_len = 1664
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='national_illness':
@@ -251,7 +276,10 @@ def main(seed_cur, pred_l):
         args.batch_size=16
         args.learning_rate=0.0025
         args.e_layers = 3
-        args.seq_len=512
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            args.seq_len=512
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
@@ -271,7 +299,10 @@ def main(seed_cur, pred_l):
         args.batch_size=32
         args.learning_rate=0.0025
         args.e_layers = 3
-        args.seq_len=512
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            args.seq_len=512
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
@@ -290,7 +321,10 @@ def main(seed_cur, pred_l):
         args.batch_size=64#
         args.learning_rate=0.0025
         args.e_layers=3
-        args.seq_len=512
+        if args.pred_len>720:
+            args.seq_len=2560 #2048
+        else:
+            args.seq_len = 512
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
 
@@ -310,6 +344,7 @@ def main(seed_cur, pred_l):
     if args.data_type == 'electricity':
         args.var_decomp = True
         args.var_sp_num = 15
+
     Exp = Exp_Main
     if args.is_training:
         for ii in range(args.itr):
@@ -357,6 +392,8 @@ def main(seed_cur, pred_l):
 if __name__ == "__main__":
     Seeds_All = [0,1,2,3,4]
     pred_len = [96, 192, 336, 720]
+    #ultra_longterm
+    # pred_len=[1020,1320,1620]
     for seed in Seeds_All:
         for pred_l in pred_len:
             main(seed,pred_l)

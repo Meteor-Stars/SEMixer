@@ -13,7 +13,10 @@ from layers.PatchTST_layers import *
 from layers.RevIN import RevIN
 import scipy
 import random
-
+from layers.SelfAttention_Family import AttentionLayer,ProbAttention,LogSparseAttention,ReformerLayer,PerformerLayer
+from sklearn.neighbors import kneighbors_graph
+from layers.AutoCorrelation import AutoCorrelation, AutoCorrelationLayer
+from  layers.FourierCorrelation import FourierBlock
 class InterPatchMixing(nn.Module):
     def __init__(self, PatchNum, connection_probability=0.1):
         super(InterPatchMixing, self).__init__()
@@ -58,8 +61,45 @@ class TMBlock(nn.Module):
         self.intra_patch_mixing = IntraPatchMixing(PatchEmbedDim, dropout)
         self.sample_num = args.sample_num
         self.PatchNum=PatchNum
-        self.self_attn = _MultiheadAttention(args.d_model, args.n_heads, args.d_model, args.d_model, res_attention=False)
 
+        if self.args.prob_attn:
+            self.self_attn = AttentionLayer(
+                ProbAttention(False, args.factor, attention_dropout=args.dropout,
+                              output_attention=args.output_attention),
+                args.d_model, args.n_heads)
+        elif self.args.logsparse:
+            self.self_attn = AttentionLayer(
+                LogSparseAttention(False, args.factor, attention_dropout=args.dropout,
+                                   output_attention=args.output_attention),
+                args.d_model, args.n_heads)
+        elif self.args.peformer_attn:
+            self.self_attn = AttentionLayer(
+                PerformerLayer(None, args.d_model, args.n_heads),
+                args.d_model, args.n_heads)
+        elif self.args.reformer_attn: #locality-sensitive hashing (LSH)
+            args.n_hashes = 4
+            args.bucket_size = 4
+            self.self_attn = AttentionLayer(
+                ReformerLayer(None, args.d_model, args.n_heads, bucket_size=args.bucket_size,
+                              n_hashes=args.n_hashes),
+                args.d_model, args.n_heads)
+        elif self.args.autocorrelation:
+            self.self_attn = AutoCorrelationLayer(
+                AutoCorrelation(False, args.factor, attention_dropout=args.dropout,
+                                output_attention=args.output_attention, args=args),
+                args.d_model, args.n_heads, )
+        elif self.args.fed_fourier_attn:
+            self.self_attn = AutoCorrelationLayer(
+                FourierBlock(in_channels=args.d_model,
+                             out_channels=args.d_model,
+                             seq_len=self.TimeNodesNum,
+                             modes=args.modes,
+                             mode_select_method=args.mode_select),
+                args.d_model, args.n_heads, )
+        elif args.self_attn:
+            self.self_attn = _MultiheadAttention(args.d_model, args.n_heads, args.d_model, args.d_model,
+                                                 attn_dropout=0,
+                                                 proj_dropout=0, res_attention=False)
     
     
     def Random_Attention(self,X,connection_probability=None,mode='train'):
