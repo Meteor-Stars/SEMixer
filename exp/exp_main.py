@@ -87,10 +87,6 @@ class Exp_Main(Exp_Basic):
             model = CI_TSmixer(config)
         else:
             model = model_dict[self.args.model].Model(configs=self.args).float()
-            # try:
-            #     model = model_dict[self.args.model].Model(configs=self.args).float()
-            # except:
-            #     model = model_dict[self.args.model].Model(args=self.args).float()
             if self.args.use_multi_gpu and self.args.use_gpu:
                 model = nn.DataParallel(model, device_ids=self.args.device_ids)
         return model
@@ -166,6 +162,18 @@ class Exp_Main(Exp_Basic):
         self.model.train()
         return loss_dict
 
+    def inject_noise(self,X, epsilon):
+
+        noisy_X = X.copy()
+        mask = np.random.rand(*X.shape) < epsilon
+        noise = np.zeros_like(X)
+        noise[mask] = np.random.uniform(
+            low=-2 * X[mask],
+            high=2 * X[mask],
+            size=np.sum(mask)
+        )
+        noisy_X += noise
+        return noisy_X
 
     def train(self, setting):
 
