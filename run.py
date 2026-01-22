@@ -392,8 +392,6 @@ def main(seed_cur, pred_l):
 if __name__ == "__main__":
     Seeds_All = [0,1,2,3,4]
     pred_len = [96, 192, 336, 720]
-    #ultra_longterm
-    # pred_len=[1020,1320,1620]
     for seed in Seeds_All:
         for pred_l in pred_len:
             main(seed,pred_l)
