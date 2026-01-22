@@ -5,7 +5,7 @@
 
 ## Overview
 
-<img src="figure/framework_SEMixer.jpg" alt="替代文本" width="auto" height="400">
+<img src="figure/framework_SEMixer.jpg" alt="替代文本" width="auto" height="450">
 
 
 - We propose an end-to-end lightweight multiscale model, SEMixer, for long-term forecasting. Due to meticulous model design, SEMixer can handle longer input sequences and achieve better performance from longer inputs.
