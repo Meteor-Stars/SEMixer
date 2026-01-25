@@ -261,6 +261,27 @@ def main(seed_cur, pred_l):
                 args.seq_len = 1664
         args.stride=int(args.seq_len / args.maximum_patch_num)
         args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
+
+
+    elif args.data_type=='traffic':
+        args.data_path = 'traffic.csv'
+        args.data = 'custom'
+        args.model_id = 'traffic'
+        args.enc_in = 862
+        args.e_layers = 1  # 1
+        args.n_heads = 16
+        args.d_model = 128
+        # args.d_model = 64
+        args.d_ff = 256
+        args.dropout = 0.2
+        args.fc_dropout = 0.2
+        args.head_dropout = 0
+        args.batch_size=24//2
+        args.learning_rate=0.0001
+        if args.pred_len == 96 or args.pred_len == 192 or args.pred_len == 336 or args.pred_len == 720:
+            args.seq_len = 2048
+        args.stride=int(args.seq_len / args.maximum_patch_num)
+        args.patch_len=int(args.seq_len / args.maximum_patch_num)*2
     elif args.data_type=='national_illness':
         args.data_path = 'national_illness.csv'
         args.data = 'custom'
