@@ -1,7 +1,7 @@
 # SEMixer: Semantics Enhanced MLP-Mixer for Multiscale Mixing and Long-term Time Series Forecasting (In ACM Web Conference 2026, WWW 2026)
-This work further improves upon LSINet [Paper (PDF)](https://arxiv.org/abs/2602.01585) by optimizing the interaction mechanism, replacing the multi-head sparse interaction mechanism with a random attention mechanism to enhance both efficiency and performance. In addition, a progressive multi-scale interaction chain is introduced to further improve prediction accuracy. SEMixer enhances the ability to learn temporal representations by strengthening patch-level semantics. 
+This work further improves upon LSINet [Paper (PDF)](https://arxiv.org/pdf/2602.01585) by optimizing the interaction mechanism, replacing the multi-head sparse interaction mechanism with a random attention mechanism to enhance both efficiency and performance. In addition, a progressive multi-scale interaction chain is introduced to further improve prediction accuracy. SEMixer enhances the ability to learn temporal representations by strengthening patch-level semantics. 
 
-The paper can be available here [Paper (PDF)](https://arxiv.org/abs/2602.16220).
+The paper can be available here [Paper (PDF)](https://arxiv.org/pdf/2602.16220).
 
 ## Datasets
   You can download the public datasets used in our paper from https://drive.google.com/drive/folders/1PPLsAoDbv4WcoXDp-mm4LFxoKwewnKxX. The downloaded folders e.g., "ETTh1.csv",  should be placed at the "dataset" folder. These datasets are extensively used for evaluating performance of various time series forecasting methods.
