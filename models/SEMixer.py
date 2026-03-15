@@ -117,7 +117,7 @@ class TMBlock(nn.Module):
         if self.args.Self_Attention_Mechanism:
             out, _ = self.self_attn(x_or)
             x_p = out.transpose(1, 2)
-        elif self.args.Random_Attention:
+        elif self.args.Random_Attention_Mechanism:
             binary_mask_matrix=torch.full((self.PatchNum,self.PatchNum),1).to(x_or.device)
             if self.args.test:
                 binary_mask_matrix=self.Random_Attention(binary_mask_matrix,connection_probability=self.args.connection_probability,mode='test')
@@ -160,7 +160,7 @@ class Model(nn.Module):
         self.configs.patch_num_all = {}
         self.padding_patch_layer_all = {}
         for i in self.scale_all:
-            self.configs.patch_num_all[i] = (int((self.configs.context_window - self.configs.patch_len * i) / (self.configs.stride * i) + 1))
+            self.configs.patch_num_all[i] = (int((self.configs.seq_len - self.configs.patch_len * i) / (self.configs.stride * i) + 1))
         if padding_patch == 'end':  # can be modified to general case
             for i, s in enumerate(self.scale_all):
                 self.padding_patch_layer = nn.ReplicationPad1d((0, self.configs.stride * s))
@@ -177,7 +177,7 @@ class Model(nn.Module):
         self.n_vars = self.configs.c_in
         self.individual = individual
         self.head_all = []
-        self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, self.configs.target_window,
+        self.head = Flatten_Head(self.individual, self.n_vars, self.head_nf, self.configs.pred_len,
                                  head_dropout=head_dropout, args=configs)
         self.revin = True
 
@@ -302,7 +302,7 @@ class MPMCLayer(nn.Module):
             return z
 
 class Flatten_Head(nn.Module):
-    def __init__(self, individual, n_vars, nf, target_window, head_dropout=0, args=None):
+    def __init__(self, individual, n_vars, nf, pred_len, head_dropout=0, args=None):
         super().__init__()
         self.args = args
         self.individual = args.var_individual
@@ -315,7 +315,7 @@ class Flatten_Head(nn.Module):
             self.flattens = nn.ModuleList()
             for i in range(self.n_vars):
                 self.flattens.append(nn.Flatten(start_dim=-2))
-                self.linears.append(nn.Linear(nf, target_window))
+                self.linears.append(nn.Linear(nf, pred_len))
                 self.dropouts.append(nn.Dropout(head_dropout))
         elif self.var_decomp:
             self.var_sp_num = args.var_sp_num  # 11
@@ -325,11 +325,11 @@ class Flatten_Head(nn.Module):
             self.flattens = nn.ModuleList()
             for i in range(self.var_sp_num):
                 self.flattens.append(nn.Flatten(start_dim=-2))
-                self.linears.append(nn.Linear(nf, target_window))
+                self.linears.append(nn.Linear(nf, pred_len))
                 self.dropouts.append(nn.Dropout(head_dropout))
         else:
             self.flatten = nn.Flatten(start_dim=-2)
-            self.linear = nn.Linear(nf, target_window)
+            self.linear = nn.Linear(nf, pred_len)
             self.dropout = nn.Dropout(head_dropout)
 
 
@@ -338,17 +338,17 @@ class Flatten_Head(nn.Module):
             x_out = []
             for i in range(self.n_vars):
                 z = self.flattens[i](x[:, i, :, :])  # z: [bs x d_model * patch_num]
-                z = self.linears[i](z)  # z: [bs x target_window]
+                z = self.linears[i](z)  # z: [bs x pred_len]
                 z = self.dropouts[i](z)
                 x_out.append(z)
-            x = torch.stack(x_out, dim=1)  # x: [bs x nvars x target_window]
+            x = torch.stack(x_out, dim=1)  # x: [bs x nvars x pred_len]
         elif self.var_decomp:
             x_out = []
             output_chunks = torch.chunk(x, self.var_sp_num, dim=1)
 
             for i in range(len(output_chunks)):
                 z = self.flattens[i](output_chunks[i])  # z: [bs x d_model * patch_num]
-                z = self.linears[i](z)  # z: [bs x target_window]
+                z = self.linears[i](z)  # z: [bs x pred_len]
                 z = self.dropouts[i](z)
                 x_out.append(z)
             x = torch.cat(x_out, dim=1)

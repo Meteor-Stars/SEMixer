@@ -127,7 +127,6 @@ def main(seed_cur, pred_l):
     args.autocorrelation=False
     args.fed_fourier_attn=False
     args.train_epochs = 30
-    args.ultra_longterm=True
     # random seed
     fix_seed = args.random_seed
     random.seed(fix_seed)
@@ -351,15 +350,17 @@ def main(seed_cur, pred_l):
 
     args.is_training=1
 
-
+    if args.seq_len==96:
+        args.maximum_patch_num=16
+        args.stride = int(args.seq_len / args.maximum_patch_num)
+        args.patch_len = int(args.seq_len / args.maximum_patch_num)
     args.des='Exp'
     args.itr=1
 
 
     args.record=True
     args.c_in=args.enc_in
-    args.context_window=args.seq_len
-    args.target_window=args.pred_len
+
     args.is_training = True
     print('Args in experiment:')
     if args.data_type == 'electricity':
